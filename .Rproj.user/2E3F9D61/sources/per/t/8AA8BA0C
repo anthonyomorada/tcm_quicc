@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1579907466987.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "367413829",
+    "id" : "8AA8BA0C",
+    "lastKnownWriteTime" : 1579909753,
+    "last_content_update" : 1579909753058,
+    "path" : "~/Documents/GitHub/tcm-quicc-project/create-master.R",
+    "project_path" : "create-master.R",
+    "properties" : {
+        "cursorPosition" : "20,50",
+        "scrollLine" : "0"
+    },
+    "relative_order" : 1,
+    "source_on_save" : true,
+    "source_window" : "",
+    "type" : "r_source"
+}
