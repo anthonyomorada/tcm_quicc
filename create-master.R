@@ -1,3 +1,6 @@
+## This script was used to update and reformat original master file. This script only needs to be run once and should not be ran again. To update master look for update-master-script.R
+
+
 setwd("~/Documents/GitHub/tcm-quicc-project")
 
 #original started on 01/24/2020
@@ -19,3 +22,4 @@ master <- rbind(og,update)
 
 library(openxlsx)
 write.xlsx(master,"~/Documents/safedata/tcm-quicc/master.xlsx")
+
