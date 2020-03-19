@@ -1,0 +1,24 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1584466179417.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "87|17|99|0|\n101|29|141|0|\n143|25|155|0|\n166|18|188|0|\n191|19|213|0|\n222|30|235|0|\n",
+    "hash" : "2796262537",
+    "id" : "FCFBF701",
+    "lastKnownWriteTime" : 1584578963,
+    "last_content_update" : 1584578963986,
+    "path" : "~/Documents/GitHub/tcm-quicc-project/TCM-Report.Rmd",
+    "project_path" : "TCM-Report.Rmd",
+    "properties" : {
+        "chunk_output_type" : "console",
+        "cursorPosition" : "307,72",
+        "scrollLine" : "0",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}
