@@ -300,11 +300,21 @@ chisq.test(table(final[!grepl("home", final$Disposition, ignore.case = TRUE),]$D
 | Discharged other than Home | `r sum(!grepl("home", final$Disposition, ignore.case = TRUE))` |
 
 
-| Variable | Pre | Post | P-value | 
-| ------------- | ------------- | ------------- | ------------- | 
-| # of Discharges | `r nrow(pre)` | `r nrow(post)` | NA |
-| # to home | `r sum(grepl("home", pre$Disposition, ignore.case = TRUE))` | `r sum(grepl("home", post$Disposition, ignore.case = TRUE))` | NA |
 
-` r sum(grepl("home", pre$Disposition, ignore.case = TRUE) & !is.na(pre$`TCM Appt Date (Within 2 Weeks)`)) `
+# Medians 
+```{r}
+# Summary of overall monitor data
+summary(monitor$`% TCM Appt Scheduled for Home or Self Care (Expect 100%)`, na.rm = T)
+sd(monitor$`% TCM Appt Scheduled for Home or Self Care (Expect 100%)`, na.rm = T)
+
+# Summary of pre
+summary(monitor[monitor$`Discharge Date` < "2020-01-28",]$`% TCM Appt Scheduled for Home or Self Care (Expect 100%)`, na.rm = T)
+sd(monitor[monitor$`Discharge Date` < "2020-01-28",]$`% TCM Appt Scheduled for Home or Self Care (Expect 100%)`, na.rm = T)
+
+# Summary of post
+summary(monitor[monitor$`Discharge Date` >= "2020-01-28",]$`% TCM Appt Scheduled for Home or Self Care (Expect 100%)`, na.rm = T)
+sd(monitor[monitor$`Discharge Date` >= "2020-01-28",]$`% TCM Appt Scheduled for Home or Self Care (Expect 100%)`, na.rm = T)
+
+```
 
 
