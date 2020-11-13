@@ -1,0 +1,3 @@
+"0","ggplot(monitor, aes(`Discharge Date`, `% TCM Order Placed Appropriately (Expect 100%)`)) + "
+"0","  geom_point() +"
+"0","  geom_smooth(method = ""lm"", se = FALSE)"

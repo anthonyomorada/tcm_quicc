@@ -1,0 +1,320 @@
+---
+title: "TCM Report"
+author: "Anthony Morada"
+date: "3/13/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# Daily Checkup and Deficient Services
+```{r data import}
+library(readxl)
+master <- read_excel("~/Documents/safedata/tcm-quicc/master.xlsx", col_types = c("text", "text", "date", "text", "date", "date", "date", "text", "date", "date", "text", "text", "numeric", "text", "text", "text"))
+
+monitor <- read_excel("~/Documents/safedata/tcm-quicc/monitor.xlsx", col_types = c("date", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"))
+
+preint <- read_excel("~/Documents/safedata/tcm-quicc/preintervention.xls", col_types = c("text", "date", "date","text", "date", "date", "text", "text", "text", "numeric", "numeric", "date", "numeric", "numeric", "numeric", "numeric", "numeric", "text", "numeric","numeric", "text", "skip", "text"),skip = 2)
+
+library(ggplot2)
+```
+
+```{r daily graphs}
+ggplot(monitor, aes(`Discharge Date`, `% TCM Appt Scheduled for Home or Self Care (Expect 100%)`)) + 
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+
+ggplot(monitor, aes(`Discharge Date`, `% TCM Order Placed Appropriately (Expect 100%)`)) + 
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+```
+  
+Follow the hashmarks for the information. TRUE == Has TCM Ordered for Home
+```{r deficient services}
+## Number of discharges
+nrow(master)
+## Number of people discharged home
+sum(grepl("home", master$Disposition, ignore.case = T))
+t <- master[grepl("home", master$Disposition, ignore.case = T),]
+## Number of people with TCM Order
+table(as.logical(t$`TCM Order`))
+## Service and TCM Orders
+table(t$`TCM Order`, t$Service)
+rm(t)
+```
+
+# Combining Preintervention Data with Followup Data
+
+There is a date gap between the two data sets we have. Preintervention and the monitor data we have been following. 
+
+```{r date ranges of our data}
+## our followup dates
+summary(master$Discharged)
+
+## pre intervention dates
+summary(preint$Discharged)
+```
+
+Merging preintervention data to our master list.
+
+```{r merging}
+library(dplyr)
+
+preint <- preint %>%
+  select(MRN, `Admit Date`, `Discharge DX`, Discharged, `TCM Completed Date(Within 2`, `TCM Made Date`, `TCM Made By`, Disposition, Service, `ED Visits Past Year`, `PCP Dept`, `TCM With PCP?`)
+
+
+# Also will have to add extra column for "Follow up With__ Order"
+preint$`Follow up With__ Order` <- NA
+preint$`TCM With PCP?` <- gsub("0", "FALSE", preint$`TCM With PCP?`)
+preint$`TCM With PCP?` <- gsub("1", "TRUE", preint$`TCM With PCP?`)
+preint$`TCM With PCP?` <- as.character(preint$`TCM With PCP?`)
+
+# Columns to remove from the master: unit, TCM (Any Specialty), TCM Made Prior, Had to replace PCP Department with PCP (now this column will be a mix of PCPs and PCP department), 
+master <- master %>%
+    select(-Unit, -`TCM (Any Specialty)`, -`TCM Made Prior Appt`)
+
+# Merging the two tables together
+colnames(preint) <- colnames(master)
+final <- rbind(master,preint) #bind
+final <- final[order(final$Discharged),] 
+final$Discharged <- as.Date(final$Discharged)
+final <- final[!duplicated(final),]
+library(openxlsx)
+write.xlsx(final,"~/Documents/safedata/tcm-quicc/final.xlsx")
+```
+
+# Data Summary after Merging Preintervention with Monitor Data
+```{r final data}
+## Number of discharges
+nrow(final)
+## Number of people discharged home
+sum(grepl("home", final$Disposition, ignore.case = T))
+t <- final[grepl("home", final$Disposition, ignore.case = T),]
+## Number of people with TCM Order
+table(as.logical(t$`TCM Order`))
+## Service and TCM Orders
+table(t$`TCM Order`, t$Service)
+rm(t)
+
+```
+
+```{r creating monitor table}
+#pulling in monitor-original for colnames 
+monitor_original <- read_excel("~/Documents/safedata/tcm-quicc/monitor-original.xlsx", col_types = c("date", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"))
+monitor <- monitor_original[0,]
+rm(monitor_original)
+fill <- monitor
+
+#loop for creating montior report
+
+for (i in 1:length(unique(as.Date(final$Discharged)))) {
+  fill[1,]<-NA
+  fill$`Discharge Date` <- unique(as.Date(final$Discharged))[i]
+  final$Discharged <- as.Date(final$Discharged)
+  sub <- subset(final, final$Discharged == as.Date(fill$`Discharge Date`))
+  
+  fill$`Total discharges` <- nrow(sub)
+  fill$`Total Discharge to home` <- sum(grepl("home", sub$Disposition, ignore.case = T))
+  fill$`TCM Order for Home or Self Care Disposition` <- sum(sub$`TCM Order` == TRUE & grepl("home", sub$Disposition, ignore.case = T))
+  fill$`% TCM Order Placed Appropriately (Expect 100%)` <- fill$`TCM Order for Home or Self Care Disposition`/fill$`Total Discharge to home` * 100
+  fill$`Total TCM Appts made for home dischrg` <- sum(grepl("home", sub$Disposition, ignore.case = T) & !is.na(sub$`TCM Appt Date (Within 2 Weeks)`))
+  fill$`% TCM Appt Scheduled for Home or Self Care (Expect 100%)` <- fill$`Total TCM Appts made for home dischrg`/fill$`Total Discharge to home` * 100
+  fill$`Total TCM's Scheduled for SNF (Expect 0)` <- sum(!grepl("home", sub$Disposition, ignore.case = T) & sub$`TCM Order` == TRUE)
+  
+  # subset here for home patients only with TCM appointments
+  sub <- sub[grepl("home", sub$Disposition, ignore.case = T) & !is.na(sub$`TCM Appt Date (Within 2 Weeks)`),]
+  fill$`% scheduled within 7 days` <- sum(as.numeric(as.Date(sub$`TCM Appt Date (Within 2 Weeks)`)-as.Date(sub$Discharged)) <= 7)/fill$`Total TCM Appts made for home dischrg` * 100
+  fill$`% scheduled iwthin 8-14 days` <- sum(as.Date(sub$`TCM Appt Date (Within 2 Weeks)`)-as.Date(sub$Discharged) <= 14 & as.Date(sub$`TCM Appt Date (Within 2 Weeks)`)-as.Date(sub$Discharged) > 7)/fill$`Total TCM Appts made for home dischrg` * 100
+  fill$`%scheduled within 14 days` <- sum(as.Date(sub$`TCM Appt Date (Within 2 Weeks)`)-as.Date(sub$Discharged) <= 14)/fill$`Total TCM Appts made for home dischrg` * 100
+  
+  #rbinding to monitor
+  monitor <- rbind(monitor,fill)
+  monitor <- monitor[!duplicated(monitor),]
+  }
+
+rm(i)
+rm(sub)
+rm(fill)
+
+write.xlsx(monitor,"~/Documents/safedata/tcm-quicc/monitor.xlsx")
+
+```
+
+```{r new monitor graphs}
+ggplot(monitor, aes(`Discharge Date`, `% TCM Appt Scheduled for Home or Self Care (Expect 100%)`)) + 
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+ggsave("~/Documents/safedata/tcm-quicc/TCM-apt-schedule.pdf")
+
+
+ggplot(monitor, aes(`Discharge Date`, `% TCM Order Placed Appropriately (Expect 100%)`)) + 
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+ggsave("~/Documents/safedata/tcm-quicc/TCM-ord-placed.pdf")
+
+```
+
+# Data Analysis
+Date of Intervention: Jan 28th 2020
+
+```{r subset by intervention date}
+pre <- final[final$Discharged < "2020-01-28",]
+post <- final[final$Discharged >= "2020-01-28",]
+```
+
+## Pre intervention data summary
+```{r pre summary}
+# number of discharges 
+nrow(pre)
+# number of patients
+length(unique(pre$MRN))
+# date range
+summary(pre$Discharged)
+# Patient disposition
+summary(as.factor(pre$Disposition))
+# Number of patients to home. TRUE = Home
+summary(grepl("home", pre$Disposition, ignore.case = TRUE))
+# Number of discharges with an associated TCM appointment within 2 weeks
+summary(!is.na(pre$`TCM Appt Date (Within 2 Weeks)`))
+# Number of patients with a discharge of "home" AND a TCM Appointment
+summary(grepl("home", pre$Disposition, ignore.case = TRUE) & !is.na(pre$`TCM Appt Date (Within 2 Weeks)`))
+# Number of TCM Orders
+summary(as.factor(pre$`TCM Order`))
+# Number of TCM Order AND TCM appointment within 2 weeks
+summary(!is.na(pre$`TCM Appt Date (Within 2 Weeks)`) & pre$`TCM Order` == "TRUE")
+# Number of TCM Order AND TCM appointment within 2 weeks AND discharge "home"
+summary(grepl("home", pre$Disposition, ignore.case = TRUE) & !is.na(pre$`TCM Appt Date (Within 2 Weeks)`) & pre$`TCM Order` == "TRUE")
+
+```
+
+## Post intervention data summary
+```{r post summary}
+# number of discharges 
+nrow(post)
+# number of patients
+length(unique(post$MRN))
+# date range
+summary(post$Discharged)
+# Patient disposition
+summary(as.factor(post$Disposition))
+# Number of patients to home. TRUE = Home
+summary(grepl("home", post$Disposition, ignore.case = TRUE))
+# Number of discharges with an associated TCM appointment within 2 weeks
+summary(!is.na(post$`TCM Appt Date (Within 2 Weeks)`))
+# Number of patients with a discharge of "home" AND a TCM Appointment
+summary(grepl("home", post$Disposition, ignore.case = TRUE) & !is.na(post$`TCM Appt Date (Within 2 Weeks)`))
+# Number of TCM Orders
+summary(as.factor(post$`TCM Order`))
+# Number of TCM Order AND TCM appointment within 2 weeks
+summary(!is.na(post$`TCM Appt Date (Within 2 Weeks)`) & post$`TCM Order` == "TRUE")
+# Number of TCM Order AND TCM appointment within 2 weeks AND discharge "home"
+summary(grepl("home", post$Disposition, ignore.case = TRUE) & !is.na(post$`TCM Appt Date (Within 2 Weeks)`) & post$`TCM Order` == "TRUE")
+
+```
+
+## Data Comparison
+### Question 1
+Q1: For patients being discharged home, did our intervention improve TCM orders and/or TCM appointments?  
+
+The denominator will be patients discharged home because we are comparing the proportion of TCM appointments and/or orders for patients who are going home.
+
+#### Comparing TCM Appointments made for patients going Home. Pre vs Post intervention
+```{r Q1 for TCM Appointments}
+# Patients discharged to "Home" 
+sum(grepl("home", final$Disposition, ignore.case = TRUE))
+# Patients discharged to "Home" in pre
+sum(grepl("home", pre$Disposition, ignore.case = TRUE))
+# Patients discharged to "Home" in post
+sum(grepl("home", post$Disposition, ignore.case = TRUE))
+# Patients to discharged to "Home" with TCM Appt within 2 week. TRUE = has TCM appt
+summary(!is.na(final[grepl("home", final$Disposition, ignore.case = TRUE),]$`TCM Appt Date (Within 2 Weeks)`))
+
+table(final[grepl("home", final$Disposition, ignore.case = TRUE),]$Discharged < "2020-01-28", !is.na(final[grepl("home", final$Disposition, ignore.case = TRUE),]$`TCM Appt Date (Within 2 Weeks)`))
+
+chisq.test(table(final[grepl("home", final$Disposition, ignore.case = TRUE),]$Discharged < "2020-01-28", !is.na(final[grepl("home", final$Disposition, ignore.case = TRUE),]$`TCM Appt Date (Within 2 Weeks)`)))
+```
+
+#### Comparing TCM Orders made for patients going Home. Pre vs Post intervention
+
+```{r Q1 for TCM Orders}
+# Patients discharged to "Home" 
+sum(grepl("home", final$Disposition, ignore.case = TRUE))
+# Patients discharged to "Home" in pre
+sum(grepl("home", pre$Disposition, ignore.case = TRUE))
+# Patients discharged to "Home" in post
+sum(grepl("home", post$Disposition, ignore.case = TRUE))
+# Patients to discharged to "Home" with TCM order. TRUE = has TCM order
+summary(as.logical(final[grepl("home", final$Disposition, ignore.case = TRUE),]$`TCM Order`))
+
+table(final[grepl("home", final$Disposition, ignore.case = TRUE),]$Discharged < "2020-01-28", as.logical(final[grepl("home", final$Disposition, ignore.case = TRUE),]$`TCM Order`))
+
+chisq.test(table(final[grepl("home", final$Disposition, ignore.case = TRUE),]$Discharged < "2020-01-28", as.logical(final[grepl("home", final$Disposition, ignore.case = TRUE),]$`TCM Order`))
+)
+```
+
+
+### Question 2
+Q2: For patients not discharged home, did our interventin improve appropriate TCM orders and/or TCM appointments? (ie. Patients discharged to SNF or Short term rehab should not have TCM orders/appts)
+
+#### Comparing TCM Appointments made for patients not going Home. Pre vs Post intervention
+```{r Q2 for TCM appts}
+# Patients discharged other than Home 
+sum(!grepl("home", final$Disposition, ignore.case = TRUE))
+# Patients discharged other than Home in Pre
+sum(!grepl("home", pre$Disposition, ignore.case = TRUE))
+# Patients discharged other than Home in Post
+sum(!grepl("home", post$Disposition, ignore.case = TRUE))
+# Patients to discharged other than Home with TCM Appt within 2 week. TRUE = has TCM appt
+summary(!is.na(final[!grepl("home", final$Disposition, ignore.case = TRUE),]$`TCM Appt Date (Within 2 Weeks)`))
+
+table(final[!grepl("home", final$Disposition, ignore.case = TRUE),]$Discharged < "2020-01-28", !is.na(final[!grepl("home", final$Disposition, ignore.case = TRUE),]$`TCM Appt Date (Within 2 Weeks)`))
+
+chisq.test(table(final[!grepl("home", final$Disposition, ignore.case = TRUE),]$Discharged < "2020-01-28", !is.na(final[!grepl("home", final$Disposition, ignore.case = TRUE),]$`TCM Appt Date (Within 2 Weeks)`)))
+```
+
+
+#### Comparing TCM Orders made for patients not going Home. Pre vs Post intervention
+
+```{r Q2 for TCM Orders}
+# Patients discharged other than Home 
+sum(!grepl("home", final$Disposition, ignore.case = TRUE))
+# Patients discharged other than Home in Pre
+sum(!grepl("home", pre$Disposition, ignore.case = TRUE))
+# Patients discharged other than Home in Post
+sum(!grepl("home", post$Disposition, ignore.case = TRUE))
+# Patients to discharged other than Home with TCM order. TRUE = has TCM order
+summary(as.logical(final[!grepl("home", final$Disposition, ignore.case = TRUE),]$`TCM Order`))
+
+table(final[!grepl("home", final$Disposition, ignore.case = TRUE),]$Discharged < "2020-01-28", as.logical(final[!grepl("home", final$Disposition, ignore.case = TRUE),]$`TCM Order`))
+
+chisq.test(table(final[!grepl("home", final$Disposition, ignore.case = TRUE),]$Discharged < "2020-01-28", as.logical(final[!grepl("home", final$Disposition, ignore.case = TRUE),]$`TCM Order`)))
+```
+
+
+| Variable | n | 
+| ------------- | ------------- | 
+| Total Number Discharges | `r nrow(final)` |
+| Number of Patients | `r length(unique(final$MRN))` |  
+| Discharged to Home | `r sum(grepl("home", final$Disposition, ignore.case = TRUE))` |    
+| Discharged other than Home | `r sum(!grepl("home", final$Disposition, ignore.case = TRUE))` |
+
+
+
+# Medians 
+```{r}
+# Summary of overall monitor data
+summary(monitor$`% TCM Appt Scheduled for Home or Self Care (Expect 100%)`, na.rm = T)
+sd(monitor$`% TCM Appt Scheduled for Home or Self Care (Expect 100%)`, na.rm = T)
+
+# Summary of pre
+summary(monitor[monitor$`Discharge Date` < "2020-01-28",]$`% TCM Appt Scheduled for Home or Self Care (Expect 100%)`, na.rm = T)
+sd(monitor[monitor$`Discharge Date` < "2020-01-28",]$`% TCM Appt Scheduled for Home or Self Care (Expect 100%)`, na.rm = T)
+
+# Summary of post
+summary(monitor[monitor$`Discharge Date` >= "2020-01-28",]$`% TCM Appt Scheduled for Home or Self Care (Expect 100%)`, na.rm = T)
+sd(monitor[monitor$`Discharge Date` >= "2020-01-28",]$`% TCM Appt Scheduled for Home or Self Care (Expect 100%)`, na.rm = T)
+
+```
+
+

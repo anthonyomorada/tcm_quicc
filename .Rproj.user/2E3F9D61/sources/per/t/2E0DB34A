@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1579956529044.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "750064595",
+    "id" : "2E0DB34A",
+    "lastKnownWriteTime" : 1584541343,
+    "last_content_update" : 1584541343614,
+    "path" : "~/Documents/GitHub/tcm-quicc-project/update-master-script.R",
+    "project_path" : "update-master-script.R",
+    "properties" : {
+        "cursorPosition" : "0,82",
+        "scrollLine" : "0",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

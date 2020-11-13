@@ -1,0 +1,4 @@
+"0","ggplot(monitor, aes(`Discharge Date`, `% TCM Appt Scheduled for Home or Self Care (Expect 100%)`)) + "
+"0","  geom_point() +"
+"0","  geom_line()+"
+"0","  geom_smooth(method = ""lm"", se = FALSE)"
